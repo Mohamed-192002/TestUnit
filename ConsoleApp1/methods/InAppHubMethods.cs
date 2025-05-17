@@ -1,19 +1,16 @@
-﻿using System.Net.Http.Json;
+﻿using Microsoft.AspNetCore.SignalR.Client;
 
 namespace ConsoleApp1.methods;
 
 public class InAppHubMethods
 {
-    private readonly HttpClient _httpClient;
+    private readonly HubConnection _connection;
     private readonly string _email;
-    private readonly string _baseUrl;
-    private readonly string _hubName= "inAppHub";
 
-    public InAppHubMethods(HttpClient httpClient, string email, string baseUrl)
+    public InAppHubMethods(HubConnection connection, string email)
     {
-        _httpClient = httpClient;
+        _connection = connection;
         _email = email;
-        _baseUrl = baseUrl;
     }
 
     public async Task CreateRoom()
@@ -24,8 +21,8 @@ public class InAppHubMethods
             IsPrivate = false
         };
 
-        var response = await _httpClient.PostAsJsonAsync($"{_baseUrl}/{_hubName}/CreateRoom", roomDto);
+        await _connection.InvokeAsync("CreateRoom", roomDto);
 
-        Console.WriteLine($"[{_email}] Create room status: {response.StatusCode}");
+        Console.WriteLine($"[{_email}] ✅ Room created successfully");
     }
 }

@@ -8,6 +8,7 @@ namespace ConsoleApp1
 {
     public class UserBot
     {
+        #region Properties
         //  const string BaseUrl = "http://188.245.96.46:80";
         const string BaseUrl = "http://localhost:5031";
         public string Email { get; }
@@ -16,7 +17,8 @@ namespace ConsoleApp1
         private HubConnection _connection;
         private readonly HttpClient _httpClient = new();
         private Dictionary<string, List<Func<Task>>> hubActions;
-
+        private InAppHubMethods _inAppHubMethods;
+        #endregion
         public UserBot(string email, string password, int mobileOd)
         {
             Email = email;
@@ -26,6 +28,7 @@ namespace ConsoleApp1
         public async Task StartAsync()
         {
             var httpClient = new HttpClient();
+
             InitializeHubActions();
 
             var hubNames = hubActions.Keys.ToList();
@@ -44,16 +47,15 @@ namespace ConsoleApp1
                 _connection = connection;
                 Console.WriteLine($"✅ Connected to {hubName}");
 
+                _inAppHubMethods = new InAppHubMethods(_connection, Email);
+
                 var actions = hubActions[hubName];
 
                 for (int i = 0; i < 5; i++)
                 {
                     var action = actions[random.Next(actions.Count)];
                     await action();
-                    var inAppHub = new InAppHubMethods(httpClient, Email, BaseUrl);
 
-                    // استدعاء الميثود
-                    await inAppHub.CreateRoom();
                     await Task.Delay(random.Next(500, 1500));
                 }
 
@@ -62,42 +64,30 @@ namespace ConsoleApp1
             }
         }
 
-        private async Task CreateRoom()
-        {
-            Console.WriteLine($"[{Email}] Creating room...");
-
-            var response = await _httpClient.PostAsJsonAsync($"{BaseUrl}/api/rooms", new
-            {
-                name = $"Room_{Email}_{Guid.NewGuid().ToString().Substring(0, 4)}"
-            });
-
-            Console.WriteLine($"[{Email}] Room creation status: {response.StatusCode}");
-        }
-
-
+        #region Privet Methods
         private void InitializeHubActions()
         {
             hubActions = new Dictionary<string, List<Func<Task>>>
             {
                 ["inAppHub"] = new List<Func<Task>>
                     {
-                        CreateRoom,
+                      () => _inAppHubMethods.CreateRoom()
                     },
-                ["MessagingStringHub"] = new List<Func<Task>>
-                    {
-                    },
-                ["otpHub"] = new List<Func<Task>>
-                    {
-                    },
-                ["testHub"] = new List<Func<Task>>
-                    {
-                    },
-                ["callHub"] = new List<Func<Task>>
-                    {
-                    }
+                //["MessagingStringHub"] = new List<Func<Task>>
+                //{
+                //},
+                //["otpHub"] = new List<Func<Task>>
+                //{
+                //},
+                //["testHub"] = new List<Func<Task>>
+                //{
+                //},
+                //["callHub"] = new List<Func<Task>>
+                //{
+                //}
             };
         }
-
+        #endregion
     }
 
 }
