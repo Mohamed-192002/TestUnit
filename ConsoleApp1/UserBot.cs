@@ -47,7 +47,15 @@ namespace ConsoleApp1
                 _connection = connection;
                 Console.WriteLine($"✅ Connected to {hubName}");
 
-                _inAppHubMethods = new InAppHubMethods(_connection, Email);
+                switch (hubName)
+                {
+                    case "inAppHub":
+                        _inAppHubMethods = new InAppHubMethods(_connection, Email);
+                        break;
+                    //case "MessagingStringHub":
+                    //    _messagingStringHub = new MessagingStringHub(_connection, Email);
+                    //    break;
+                }
 
                 var actions = hubActions[hubName];
 
