@@ -15,9 +15,9 @@ namespace ConsoleApp1
         public string Password { get; }
         public int MobileId { get; }
         private HubConnection _connection;
-        private readonly HttpClient _httpClient = new();
         private Dictionary<string, List<Func<Task>>> hubActions;
         private InAppHubMethods _inAppHubMethods;
+        private MessagingStringHubMethods _messagingStringHubMethods;
         #endregion
         public UserBot(string email, string password, int mobileOd)
         {
@@ -31,9 +31,9 @@ namespace ConsoleApp1
 
             InitializeHubActions();
 
-            var hubNames = hubActions.Keys.ToList();
             var random = new Random();
 
+            var hubNames = hubActions.Keys.ToList();
             foreach (var hubName in hubNames)
             {
                 var loginService = new ConnectHubService(httpClient, Email, Password, MobileId, BaseUrl, hubName);
@@ -52,14 +52,15 @@ namespace ConsoleApp1
                     case "inAppHub":
                         _inAppHubMethods = new InAppHubMethods(_connection, Email);
                         break;
-                    //case "MessagingStringHub":
-                    //    _messagingStringHub = new MessagingStringHub(_connection, Email);
-                    //    break;
+                    case "MessagingStringHub":
+                        _messagingStringHubMethods = new MessagingStringHubMethods(_connection, Email);
+                        break;
                 }
 
                 var actions = hubActions[hubName];
-
-                for (int i = 0; i < 5; i++)
+                TimeSpan duration = TimeSpan.FromMinutes(2);
+                DateTime endTime = DateTime.Now.Add(duration);
+                while (DateTime.Now < endTime)
                 {
                     var action = actions[random.Next(actions.Count)];
                     await action();
@@ -79,20 +80,12 @@ namespace ConsoleApp1
             {
                 ["inAppHub"] = new List<Func<Task>>
                     {
-                      () => _inAppHubMethods.CreateRoom()
+                      () => _inAppHubMethods.CreateRoom(3)
                     },
-                //["MessagingStringHub"] = new List<Func<Task>>
-                //{
-                //},
-                //["otpHub"] = new List<Func<Task>>
-                //{
-                //},
-                //["testHub"] = new List<Func<Task>>
-                //{
-                //},
-                //["callHub"] = new List<Func<Task>>
-                //{
-                //}
+                ["MessagingStringHub"] = new List<Func<Task>>
+                    {
+                      () => _messagingStringHubMethods.SendMessage(3)
+                    },
             };
         }
         #endregion
