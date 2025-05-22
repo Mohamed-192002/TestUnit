@@ -10,12 +10,11 @@ namespace ConsoleApp1
     {
         #region Properties
         //  const string BaseUrl = "http://188.245.96.46:80";
-        const string BaseUrl = "http://localhost:5031";
+      //  const string BaseUrl = "http://localhost:5031";
         public string Email { get; }
         public string Password { get; }
         public int MobileId { get; }
         private HubConnection _connection;
-        private Dictionary<string, List<Func<Task>>> hubActions;
         private InAppHubMethods _inAppHubMethods;
         private MessagingStringHubMethods _messagingStringHubMethods;
         #endregion
@@ -29,65 +28,72 @@ namespace ConsoleApp1
         {
             var httpClient = new HttpClient();
 
-            InitializeHubActions();
-
             var random = new Random();
 
-            var hubNames = hubActions.Keys.ToList();
+            var hubNames = GetModulesPerHub().Keys.ToList();
+
             foreach (var hubName in hubNames)
             {
-                var loginService = new ConnectHubService(httpClient, Email, Password, MobileId, BaseUrl, hubName);
-                var connection = await loginService.ConnectAsync();
+                var loginService = new ConnectHubService(httpClient, Email, Password, MobileId, Consts.BaseUrl, hubName);
+                var (connection, userId) = await loginService.ConnectAsync();
                 if (connection == null)
                 {
                     Console.WriteLine($"❌ Failed to connect to {hubName}");
                     continue;
                 }
-
                 _connection = connection;
+
                 Console.WriteLine($"✅ Connected to {hubName}");
 
                 switch (hubName)
                 {
-                    case "inAppHub":
+                    case Consts.inAppHub:
                         _inAppHubMethods = new InAppHubMethods(_connection, Email);
                         break;
-                    case "MessagingStringHub":
-                        _messagingStringHubMethods = new MessagingStringHubMethods(_connection, Email);
+                    case Consts.MessagingStringHub:
+                        _messagingStringHubMethods = new MessagingStringHubMethods(_connection, Email, userId);
                         break;
                 }
 
-                var actions = hubActions[hubName];
-                TimeSpan duration = TimeSpan.FromMinutes(2);
-                DateTime endTime = DateTime.Now.Add(duration);
-                while (DateTime.Now < endTime)
+                // Get modules
+                var modulesPerHub = GetModulesPerHub(); 
+                if (modulesPerHub.TryGetValue(hubName, out var moduleFactory))
                 {
-                    var action = actions[random.Next(actions.Count)];
-                    await action();
+                    var modules = moduleFactory.Invoke();
 
-                    await Task.Delay(random.Next(500, 1500));
+                    var duration = TimeSpan.FromMinutes(2);
+                    var endTime = DateTime.Now.Add(duration);
+
+                    while (DateTime.Now < endTime)
+                    {
+                        var module = modules[random.Next(modules.Count)];
+                        await module.ExecuteAsync();
+                        await Task.Delay(random.Next(1000, 2000));
+                    }
                 }
-
                 await _connection.StopAsync();
                 Console.WriteLine($"🛑 Disconnected from {hubName}");
             }
         }
 
         #region Privet Methods
-        private void InitializeHubActions()
+        private Dictionary<string, Func<List<IBotModule>>> GetModulesPerHub()
         {
-            hubActions = new Dictionary<string, List<Func<Task>>>
+            return new Dictionary<string, Func<List<IBotModule>>>
             {
-                ["inAppHub"] = new List<Func<Task>>
-                    {
-                      () => _inAppHubMethods.CreateRoom(3)
-                    },
-                ["MessagingStringHub"] = new List<Func<Task>>
-                    {
-                      () => _messagingStringHubMethods.SendMessage(3)
-                    },
+                [Consts.MessagingStringHub] = () => new List<IBotModule>
+                {
+                    new MessagingModule(_messagingStringHubMethods),
+                    new StoriesModule(_messagingStringHubMethods)
+                    // Add more modules like NotificationsModule, ContactsModule, etc.
+                },
+                [Consts.inAppHub] = () => new List<IBotModule>
+                {
+                  //  new RoomModule(_inAppHubMethods)
+                }
             };
         }
+
         #endregion
     }
 

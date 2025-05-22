@@ -25,20 +25,20 @@ public class ConnectHubService
         _hubName = hubName;
     }
 
-    public async Task<HubConnection> ConnectAsync()
+    public async Task<(HubConnection connection, long userId)> ConnectAsync()
     {
-        var jwt = await GetJwtToken();
-        if (jwt == null)
+        var AuthData = await GetJwtToken();
+        if (AuthData == null)
         {
             Console.WriteLine("Login failed.");
-            return null;
+            return (null, 0);
         }
-
+        var jwt = AuthData.Tokens.AccessToken;
         var key = await GetAuthKey(jwt);
         if (key == null)
         {
             Console.WriteLine("Failed to get SignalR key.");
-            return null;
+            return (null, 0);
         }
 
         var connection = new HubConnectionBuilder()
@@ -52,10 +52,10 @@ public class ConnectHubService
         await connection.StartAsync();
         Console.WriteLine("Connected to SignalR hub.");
 
-        return connection;
+        return (connection, AuthData.Profile.Id);
     }
 
-    private async Task<string> GetJwtToken()
+    private async Task<AuthData> GetJwtToken()
     {
         var loginDto = new
         {
@@ -68,7 +68,7 @@ public class ConnectHubService
             return null;
 
         var result = await response.Content.ReadFromJsonAsync<AuthResponse<AuthData>>();
-        return result?.Data?.Tokens?.AccessToken;
+        return result?.Data;
     }
 
     private async Task<string> GetAuthKey(string accessToken)
